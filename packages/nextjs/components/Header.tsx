@@ -43,6 +43,7 @@ export const Header = () => {
         <Link href="/" className="flex shrink-0 items-center gap-2.5">
           <OraMark />
           <span className="font-display text-xl leading-none">Ora</span>
+          <span className="ml-1 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Sepolia</span>
           <span className="ml-1 hidden font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground sm:inline">
             Aotearoa
           </span>

@@ -87,4 +87,8 @@ export const notification = {
   remove: (toastId: string) => {
     toast.remove(toastId);
   },
+  /** Clears every active toast. Use before replacing a raw simulate error with a mapped one. */
+  dismissAll: () => {
+    toast.dismiss();
+  },
 };

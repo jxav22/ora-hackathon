@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { NextPage } from "next";
 import { Card, Eyebrow, Skeleton, Stat } from "~~/components/ora/primitives";
 import { useHackathonMarket } from "~~/hooks/aave/useHackathonMarket";
+import { isPrivyEnabled } from "~~/utils/auth/isPrivyEnabled";
 import { formatBase, formatNzd, formatPercent } from "~~/utils/format/money";
 
 /**
@@ -34,11 +35,12 @@ export default Landing;
  * Height is measured in `svh`, not `vh`, because on a phone `100vh` is the viewport with the
  * browser chrome hidden, which is taller than what is actually visible on load and cuts the
  * bottom off. `svh` is the smallest viewport, so the hero fits whether the chrome is showing
- * or not. Padding is symmetric so the centring is true rather than optically low, and the
- * height is a minimum, so on a short screen the content grows and scrolls instead of clipping.
+ * or not. The offset is the sticky header plus the prototype bar. Padding is symmetric so the
+ * centring is true rather than optically low, and the height is a minimum, so on a short
+ * screen the content grows and scrolls instead of clipping.
  */
 const Hero = () => (
-  <section className="relative flex min-h-[calc(100svh-4rem)] items-center overflow-hidden">
+  <section className="relative flex min-h-[calc(100svh-7rem)] items-center overflow-hidden lg:min-h-[calc(100svh-6.25rem)]">
     <div className="grain container-page grid w-full gap-10 py-[clamp(1.5rem,4svh,3rem)] lg:grid-cols-[1.15fr_1fr] lg:gap-12">
       <div>
         <Eyebrow>Aotearoa New Zealand</Eyebrow>
@@ -60,7 +62,8 @@ const Hero = () => (
           Nearly every way to earn on-chain is priced in US dollars, so a New Zealander putting savings to work ends up
           holding a currency position they never chose. Ora is denominated in{" "}
           <span className="text-foreground">New Zealand dollars</span> throughout: what you deposit, what you owe and
-          what you can borrow are all the same currency.
+          what you can borrow are all the same currency. This site is a Sepolia testnet prototype. It uses demo NZD
+          (dNZD) and test ETH and Bitcoin on an Aave V3 market, not bank deposits.
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <Link
@@ -78,7 +81,7 @@ const Hero = () => (
           </Link>
         </div>
         <p className="mt-5 font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
-          Sign in with an email address · No wallet to install
+          {isPrivyEnabled ? "Sign in with an email address · No wallet to install" : "Connect a wallet to get started"}
         </p>
       </div>
 
@@ -98,10 +101,7 @@ const HeroCard = () => {
       <Card className="relative overflow-hidden">
         <div className="flex items-baseline justify-between">
           <Eyebrow>The NZD market</Eyebrow>
-          <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--pine)]">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--pine)]" />
-            Live
-          </span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--pine)]">Sepolia</span>
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-6">
@@ -170,11 +170,11 @@ const TwoPaths = () => {
           <h2 className="mt-4 font-display text-4xl leading-[1.05] lg:text-5xl">
             Put them to work.
             <br />
-            <em>Take them back whenever.</em>
+            <em>Withdraw when the pool can.</em>
           </h2>
           <p className="mt-5 max-w-md text-muted-foreground">
-            Deposit New Zealand dollars and earn the interest paid by the people borrowing them. Your balance grows
-            continuously, and you can withdraw at any time.
+            Deposit demo New Zealand dollars (dNZD) and earn the interest paid by the people borrowing them. Your
+            balance grows continuously, and you can withdraw when the pool still holds the funds.
           </p>
 
           <div className="mt-8 flex items-baseline gap-3">
@@ -188,8 +188,8 @@ const TwoPaths = () => {
         <div className="mt-10">
           <ol className="flex flex-col gap-3 text-sm">
             {[
-              "Sign in with your email address",
-              "Deposit New Zealand dollars",
+              isPrivyEnabled ? "Sign in with your email address" : "Connect a wallet",
+              "Deposit demo NZD (dNZD)",
               "Interest accrues into your balance",
             ].map((step, index) => (
               <li key={step} className="flex items-center gap-3 text-foreground">
@@ -217,14 +217,13 @@ const TwoPaths = () => {
             <em className="text-[var(--moss)]">without selling.</em>
           </h2>
           <p className="mt-5 max-w-md text-[var(--cream)]/75">
-            Deposit your ETH or Bitcoin as collateral and borrow New Zealand dollars against it. You are not selling.
-            The asset stays yours, and so does any movement in its price. Repay whenever you like and take the
-            collateral back.
+            Deposit test ETH or test Bitcoin as collateral and borrow demo New Zealand dollars against it. You are not
+            selling the collateral. Repay and take it back. Prices on this prototype come from fixed test oracles.
           </p>
         </div>
 
         <div>
-          <div className="mt-10 grid grid-cols-3 gap-6">
+          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
             <div>
               <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--cream)]/60">
                 Borrow up to
@@ -322,8 +321,8 @@ const RiskSection = () => {
             </table>
           </div>
           <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-            An illustration, not your position, and not a forecast. The real thing reads your own collateral at its live
-            price
+            An illustration, not your position, and not a forecast. The stress tester reads your own collateral at the
+            prototype&apos;s oracle price
             {eth && eth.oraclePrice > 0n ? ` (ETH is currently ${formatBase(eth.oraclePrice)}) ` : " "}
             and shows the decline at which liquidation would begin.
           </p>
@@ -339,13 +338,12 @@ const Footnote = () => (
       <div>
         <Eyebrow>What is underneath</Eyebrow>
         <p className="mt-6 max-w-3xl font-display text-3xl leading-[1.15] lg:text-4xl">
-          Deposits and loans sit in a lending contract, not with us. Balances, rates and every transaction are on a
-          public ledger you can read yourself.
+          Deposits and loans sit in Aave V3 contracts on Ethereum Sepolia. Balances, rates and every transaction are on
+          a public ledger you can read yourself.
         </p>
         <p className="mt-6 max-w-2xl text-muted-foreground">
-          Ora never takes custody of your money. Signing in creates a wallet that you control, and every deposit,
-          withdrawal, loan and repayment is a transaction you approve. The lending mechanics are the well-proven part;
-          what we built is the part a New Zealander can actually use.
+          Ora does not custody the test assets. Each deposit, withdrawal, loan and repayment is a transaction you
+          approve. Rates are variable and are not guaranteed.
         </p>
       </div>
       <div className="flex flex-col justify-end gap-3">

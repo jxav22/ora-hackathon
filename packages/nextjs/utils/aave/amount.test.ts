@@ -8,6 +8,7 @@ import {
   hasSufficientBalance,
   isRepayAllAmount,
   isWithdrawAllAmount,
+  maxWithdrawableUnderlying,
   parseTokenAmount,
   repayApprovalAmount,
 } from "./amount";
@@ -106,6 +107,99 @@ describe("repayApprovalAmount", () => {
   it("handles dust debt (1 base unit)", () => {
     // 1 + 0 + 1
     expect(repayApprovalAmount(1n, 0n)).toBe(2n);
+  });
+});
+
+describe("maxWithdrawableUnderlying", () => {
+  const ethDecimals = 18;
+  /** NZ$3,090 with 8 base decimals. */
+  const ethPrice = 309_000_000_000n;
+
+  it("returns the full deposit when there is no debt", () => {
+    const deposited = 10n ** 17n; // 0.1 ETH
+    expect(
+      maxWithdrawableUnderlying({
+        deposited,
+        totalCollateralBase: 30_900_000_000n,
+        totalDebtBase: 0n,
+        liquidationThresholdBps: 8000n,
+        assetPriceBase: ethPrice,
+        assetDecimals: ethDecimals,
+      }),
+    ).toBe(deposited);
+  });
+
+  it("returns zero when debt fully consumes the liquidation buffer", () => {
+    // 0.32 ETH ≈ NZ$989; LT 80% → max debt at HF=1 is 0.8 * 989
+    const deposited = 32n * 10n ** 16n;
+    const collateralBase = (deposited * ethPrice) / 10n ** 18n;
+    const debtAtHfOne = (collateralBase * 8000n) / 10_000n;
+
+    expect(
+      maxWithdrawableUnderlying({
+        deposited,
+        totalCollateralBase: collateralBase,
+        totalDebtBase: debtAtHfOne,
+        liquidationThresholdBps: 8000n,
+        assetPriceBase: ethPrice,
+        assetDecimals: ethDecimals,
+      }),
+    ).toBe(0n);
+  });
+
+  it("returns a partial amount when only some collateral is free", () => {
+    const deposited = 32n * 10n ** 16n; // 0.32 ETH
+    const collateralBase = (deposited * ethPrice) / 10n ** 18n;
+    // Borrow half of the HF=1 capacity so roughly half the collateral is free.
+    const debt = (collateralBase * 8000n) / 10_000n / 2n;
+
+    const result = maxWithdrawableUnderlying({
+      deposited,
+      totalCollateralBase: collateralBase,
+      totalDebtBase: debt,
+      liquidationThresholdBps: 8000n,
+      assetPriceBase: ethPrice,
+      assetDecimals: ethDecimals,
+    });
+
+    expect(result).toBeGreaterThan(0n);
+    expect(result).toBeLessThan(deposited);
+  });
+
+  it("caps at available market liquidity", () => {
+    const deposited = 10n ** 18n;
+    const liquidity = 10n ** 17n;
+
+    expect(
+      maxWithdrawableUnderlying({
+        deposited,
+        totalCollateralBase: 0n,
+        totalDebtBase: 0n,
+        liquidationThresholdBps: 8000n,
+        assetPriceBase: ethPrice,
+        assetDecimals: ethDecimals,
+        availableLiquidity: liquidity,
+      }),
+    ).toBe(liquidity);
+  });
+
+  it("with debt never returns more than the liquidity-capped HF amount", () => {
+    const deposited = 32n * 10n ** 16n;
+    const collateralBase = (deposited * ethPrice) / 10n ** 18n;
+    const debt = (collateralBase * 8000n) / 10_000n / 2n;
+    const tinyLiquidity = 10n ** 15n;
+
+    const result = maxWithdrawableUnderlying({
+      deposited,
+      totalCollateralBase: collateralBase,
+      totalDebtBase: debt,
+      liquidationThresholdBps: 8000n,
+      assetPriceBase: ethPrice,
+      assetDecimals: ethDecimals,
+      availableLiquidity: tinyLiquidity,
+    });
+
+    expect(result).toBe(tinyLiquidity);
   });
 });
 

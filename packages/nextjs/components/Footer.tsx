@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { OraMark } from "~~/components/ora/OraMark";
 import { aaveHackathonMnzdConfig } from "~~/config/aaveHackathonMnzd";
+import { getPublicContactEmail } from "~~/utils/site/contactEmail";
 
 const PRODUCT_LINKS = [
   { label: "Your account", href: "/app" },
@@ -17,6 +18,7 @@ const TECHNICAL_LINKS = [
 
 export const Footer = () => {
   const explorer = `${aaveHackathonMnzdConfig.explorerBaseUrl}/address/${aaveHackathonMnzdConfig.poolAddress}`;
+  const contactEmail = getPublicContactEmail();
 
   return (
     <footer className="mt-auto border-t border-border bg-[var(--paper)]/50">
@@ -27,8 +29,16 @@ export const Footer = () => {
             <span className="font-display text-lg leading-none">Ora</span>
           </Link>
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
-            A New Zealand dollar lending market. Earn on NZD, or borrow against the crypto you already hold.
+            A Sepolia testnet prototype of a New Zealand dollar lending market, built on Aave V3.
           </p>
+          {contactEmail ? (
+            <a
+              href={`mailto:${contactEmail}`}
+              className="mt-3 inline-block text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {contactEmail}
+            </a>
+          ) : null}
         </div>
 
         <nav aria-label="Product">
@@ -91,7 +101,7 @@ export const Footer = () => {
 
       <div className="border-t border-border/60">
         <div className="container-page flex flex-col gap-3 py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <span className="font-mono uppercase tracking-[0.18em]">Ora · Aotearoa New Zealand</span>
+          <span className="font-mono uppercase tracking-[0.18em]">Ora · Sepolia testnet · Aave V3</span>
           <span className="max-w-xl leading-relaxed">
             Interest rates vary with market conditions and are not guaranteed. Borrowing against collateral carries a
             risk of liquidation. Nothing here is financial or tax advice.

@@ -15,12 +15,12 @@ If you're interested in contributing, please read the [contributing docs](/.gith
 
 ## Hackathon dNZD market
 
-This fork includes a Foundry deploy path for a **custom Aave V3 market** with a mintable stand-in stablecoin (`dNZD`) for Web3NZ hackathon demos. This repo deploys contracts only; a separate client repo consumes the addresses.
+This tree is vendored inside the Ora monorepo and includes a Foundry deploy path for a **custom Aave V3 market** with a mintable stand-in stablecoin (`dNZD`) for Web3NZ hackathon demos. The Next.js client lives at `packages/nextjs` (one level up).
 
-- **Client / frontend engineers:** start with [docs/CLIENT_HANDOFF.md](docs/CLIENT_HANDOFF.md) (JSON fields, mint/supply/withdraw flow, common failures).
+- **Client / frontend engineers:** start with [docs/CLIENT_HANDOFF.md](docs/CLIENT_HANDOFF.md) (JSON fields, mint/supply/withdraw flow, common failures), then copy addresses into `../packages/nextjs/config/hackathon-market.json`.
 - **Deploy / protocol engineers:** see [docs/HACKATHON_MARKET.md](docs/HACKATHON_MARKET.md) (Foundry commands, listing, limitations).
 
-After deploy, share [`reports/hackathon-market.json`](reports/hackathon-market.json) with the client team.
+After deploy, copy [`reports/hackathon-market.json`](reports/hackathon-market.json) → `../packages/nextjs/config/hackathon-market.json`.
 
 ```bash
 forge test --match-path tests/hackathon/HackathonMarket.t.sol -vv

@@ -6,6 +6,7 @@ import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaf
 import {
   REPAY_ALL_AMOUNT,
   WITHDRAW_ALL_AMOUNT,
+  maxWithdrawableUnderlying,
   hasSufficientAllowance,
   hasSufficientBalance,
   parseTokenAmount,
@@ -96,6 +97,12 @@ const OWNABLE_MINT_HINT =
 
 function mapTxError(error: unknown, fallback: string): string {
   return mapAaveTxError(error, fallback, { ownableMintHint: OWNABLE_MINT_HINT });
+}
+
+/** Show one mapped toast; drop the raw "execution reverted" from simulate/transactor if present. */
+function notifyMappedError(message: string) {
+  notification.dismissAll();
+  notification.error(message);
 }
 
 /**
@@ -209,6 +216,26 @@ export function useAaveHackathonMnzd(selectedAsset: HackathonAssetSymbol = "wETH
     query: { enabled },
   });
 
+  const {
+    data: assetPriceBase,
+    refetch: refetchAssetPrice,
+  } = useScaffoldReadContract({
+    contractName: "HackathonOracle",
+    functionName: "getAssetPrice",
+    args: [assetConfig.underlyingAddress],
+    query: { enabled: isCorrectNetwork },
+  });
+
+  const {
+    data: reserveData,
+    refetch: refetchReserveData,
+  } = useScaffoldReadContract({
+    contractName: "HackathonDataProvider",
+    functionName: "getReserveData",
+    args: [assetConfig.underlyingAddress],
+    query: { enabled: isCorrectNetwork },
+  });
+
   const { writeContractAsync: writeMnzdAsync } = useScaffoldWriteContract({
     contractName: "HackathonMnzd",
   });
@@ -260,6 +287,8 @@ export function useAaveHackathonMnzd(selectedAsset: HackathonAssetSymbol = "wETH
       refetchSupplied(),
       refetchBorrowed(),
       refetchAccount(),
+      refetchAssetPrice(),
+      refetchReserveData(),
       refetchDecimals(),
       refetchSymbol(),
       assetConfig.mintable ? refetchOwner() : Promise.resolve(),
@@ -268,10 +297,12 @@ export function useAaveHackathonMnzd(selectedAsset: HackathonAssetSymbol = "wETH
     assetConfig.mintable,
     refetchAccount,
     refetchAllowance,
+    refetchAssetPrice,
     refetchBalance,
     refetchBorrowed,
     refetchDecimals,
     refetchOwner,
+    refetchReserveData,
     refetchSupplied,
     refetchSymbol,
   ]);
@@ -293,7 +324,7 @@ export function useAaveHackathonMnzd(selectedAsset: HackathonAssetSymbol = "wETH
     } catch (e) {
       const message = mapTxError(e, "Failed to switch to Sepolia.");
       setError(message);
-      notification.error(message);
+      notifyMappedError(message);
       throw e;
     }
   }, [switchChainAsync]);
@@ -328,7 +359,7 @@ export function useAaveHackathonMnzd(selectedAsset: HackathonAssetSymbol = "wETH
       } catch (e) {
         const message = mapTxError(e, "Mint failed.");
         setError(message);
-        notification.error(message);
+        notifyMappedError(message);
         throw e;
       } finally {
         setIsMinting(false);
@@ -365,7 +396,7 @@ export function useAaveHackathonMnzd(selectedAsset: HackathonAssetSymbol = "wETH
       } catch (e) {
         const message = mapTxError(e, "Wrap ETH failed.");
         setError(message);
-        notification.error(message);
+        notifyMappedError(message);
         throw e;
       } finally {
         setIsWrapping(false);
@@ -403,7 +434,7 @@ export function useAaveHackathonMnzd(selectedAsset: HackathonAssetSymbol = "wETH
       } catch (e) {
         const message = mapTxError(e, "Supply ETH failed.");
         setError(message);
-        notification.error(message);
+        notifyMappedError(message);
         throw e;
       } finally {
         setIsSupplying(false);
@@ -437,7 +468,7 @@ export function useAaveHackathonMnzd(selectedAsset: HackathonAssetSymbol = "wETH
       } catch (e) {
         const message = mapTxError(e, "Approval failed.");
         setError(message);
-        notification.error(message);
+        notifyMappedError(message);
         throw e;
       } finally {
         setIsApproving(false);
@@ -480,7 +511,7 @@ export function useAaveHackathonMnzd(selectedAsset: HackathonAssetSymbol = "wETH
       } catch (e) {
         const message = mapTxError(e, "Supply failed.");
         setError(message);
-        notification.error(message);
+        notifyMappedError(message);
         throw e;
       } finally {
         setIsSupplying(false);
@@ -528,7 +559,7 @@ export function useAaveHackathonMnzd(selectedAsset: HackathonAssetSymbol = "wETH
           "Withdrawal failed. This can happen when market liquidity is unavailable or the position is constrained by debt/collateral requirements.",
         );
         setError(message);
-        notification.error(message);
+        notifyMappedError(message);
         throw e;
       } finally {
         setIsWithdrawing(false);
@@ -550,15 +581,61 @@ export function useAaveHackathonMnzd(selectedAsset: HackathonAssetSymbol = "wETH
     setIsWithdrawing(true);
     try {
       const user = requireWalletAndNetwork();
-      const supplied = (suppliedBalance as bigint | undefined) ?? ZERO;
+
+      // Fresh aToken, account, price, and reserve liquidity — stale snapshots reopen the HF revert.
+      const [suppliedResult, accountResult, priceResult, reserveResult] = await Promise.all([
+        refetchSupplied(),
+        refetchAccount(),
+        refetchAssetPrice(),
+        refetchReserveData(),
+      ]);
+
+      const supplied =
+        (suppliedResult.data as bigint | undefined) ?? (suppliedBalance as bigint | undefined) ?? ZERO;
 
       if (supplied <= ZERO) {
         throw new Error("No supplied balance to withdraw.");
       }
 
+      const account =
+        (accountResult.data as readonly bigint[] | undefined) ?? (accountData as readonly bigint[] | undefined);
+      const price =
+        (priceResult.data as bigint | undefined) ?? (assetPriceBase as bigint | undefined) ?? ZERO;
+      const reserve =
+        (reserveResult.data as readonly bigint[] | undefined) ?? (reserveData as readonly bigint[] | undefined);
+
+      const totalCollateralBase = account?.[0] ?? ZERO;
+      const totalDebtBase = account?.[1] ?? ZERO;
+      const liquidationThresholdBps = account?.[3] ?? ZERO;
+      const totalAToken = reserve?.[2] ?? ZERO;
+      const totalVariableDebt = reserve?.[4] ?? ZERO;
+      const availableLiquidity = totalAToken > totalVariableDebt ? totalAToken - totalVariableDebt : ZERO;
+
+      const maxAmount = maxWithdrawableUnderlying({
+        deposited: supplied,
+        totalCollateralBase,
+        totalDebtBase,
+        liquidationThresholdBps,
+        assetPriceBase: price,
+        assetDecimals: decimals,
+        availableLiquidity,
+      });
+
+      if (maxAmount <= ZERO) {
+        throw new Error(
+          availableLiquidity === ZERO
+            ? "Not enough market liquidity to withdraw right now. Try again when more has been repaid into the pool."
+            : "This deposit is covering a loan. Repay New Zealand dollars before withdrawing collateral.",
+        );
+      }
+
+      // With open debt, never pass maxUint256 — that burns the full aToken balance then
+      // validates HF and reverts. Always send the explicit safe amount.
+      const amountArg = totalDebtBase === ZERO && maxAmount >= supplied ? WITHDRAW_ALL_AMOUNT : maxAmount;
+
       const txHash = await writePoolAsync({
         functionName: "withdraw",
-        args: [assetConfig.underlyingAddress, WITHDRAW_ALL_AMOUNT, user],
+        args: [assetConfig.underlyingAddress, amountArg, user],
       });
 
       if (!txHash) {
@@ -566,19 +643,38 @@ export function useAaveHackathonMnzd(selectedAsset: HackathonAssetSymbol = "wETH
       }
 
       await refresh();
-      notification.success(`Withdrew full ${symbol} position from the Ora market.`);
+      notification.success(
+        amountArg === WITHDRAW_ALL_AMOUNT
+          ? `Withdrew full ${symbol} position from the Ora market.`
+          : `Withdrew available ${symbol} from the Ora market.`,
+      );
     } catch (e) {
       const message = mapTxError(
         e,
         "Withdraw-all failed. This can happen when market liquidity is unavailable or the position is constrained by debt/collateral requirements.",
       );
       setError(message);
-      notification.error(message);
+      notifyMappedError(message);
       throw e;
     } finally {
       setIsWithdrawing(false);
     }
-  }, [assetConfig.underlyingAddress, refresh, requireWalletAndNetwork, suppliedBalance, symbol, writePoolAsync]);
+  }, [
+    accountData,
+    assetConfig.underlyingAddress,
+    assetPriceBase,
+    decimals,
+    refetchAccount,
+    refetchAssetPrice,
+    refetchReserveData,
+    refetchSupplied,
+    refresh,
+    requireWalletAndNetwork,
+    reserveData,
+    suppliedBalance,
+    symbol,
+    writePoolAsync,
+  ]);
 
   const borrow = useCallback(
     async (amount: string) => {
@@ -605,7 +701,7 @@ export function useAaveHackathonMnzd(selectedAsset: HackathonAssetSymbol = "wETH
           "Borrow failed. Supply collateral first, keep health factor above 1, and ensure the reserve has liquidity.",
         );
         setError(message);
-        notification.error(message);
+        notifyMappedError(message);
         throw e;
       } finally {
         setIsBorrowing(false);
@@ -653,7 +749,7 @@ export function useAaveHackathonMnzd(selectedAsset: HackathonAssetSymbol = "wETH
       } catch (e) {
         const message = mapTxError(e, "Repay failed.");
         setError(message);
-        notification.error(message);
+        notifyMappedError(message);
         throw e;
       } finally {
         setIsRepaying(false);
@@ -711,7 +807,7 @@ export function useAaveHackathonMnzd(selectedAsset: HackathonAssetSymbol = "wETH
     } catch (e) {
       const message = mapTxError(e, "Repay-all failed.");
       setError(message);
-      notification.error(message);
+      notifyMappedError(message);
       throw e;
     } finally {
       setIsRepaying(false);

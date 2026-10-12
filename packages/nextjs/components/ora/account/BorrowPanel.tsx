@@ -22,7 +22,7 @@ import { useBorrowRisk } from "~~/hooks/aave/useBorrowRisk";
 import type { ReserveSummary } from "~~/hooks/aave/useHackathonMarket";
 import { useTxSequence } from "~~/hooks/aave/useTxSequence";
 import type { UserPositions } from "~~/hooks/aave/useUserPositions";
-import { parseTokenAmount, repayApprovalAmount } from "~~/utils/aave/amount";
+import { parseTokenAmount, repayApprovalAmount, maxWithdrawableUnderlying } from "~~/utils/aave/amount";
 import { formatBase, formatNzd, formatPercent, formatToken, formatTokenBare } from "~~/utils/format/money";
 
 /**
@@ -118,6 +118,30 @@ export const BorrowPanel = ({
   });
 
   const debtBare = formatTokenBare(nzdPosition.borrowed, nzdDecimals);
+
+  const maxWithdrawableCollateral = useMemo(() => {
+    return maxWithdrawableUnderlying({
+      deposited: collateralPosition.deposited,
+      totalCollateralBase: positions.totalCollateralBase,
+      totalDebtBase: positions.totalDebtBase,
+      liquidationThresholdBps: positions.liquidationThresholdBps,
+      assetPriceBase: collateralReserve?.oraclePrice ?? 0n,
+      assetDecimals: collateralPosition.decimals,
+      availableLiquidity: collateralReserve?.availableLiquidity,
+    });
+  }, [
+    collateralPosition.deposited,
+    collateralPosition.decimals,
+    collateralReserve?.availableLiquidity,
+    collateralReserve?.oraclePrice,
+    positions.liquidationThresholdBps,
+    positions.totalCollateralBase,
+    positions.totalDebtBase,
+  ]);
+
+  const canWithdrawCollateral =
+    maxWithdrawableCollateral > 0n && positions.isCorrectNetwork && !collateralSequence.isRunning;
+
   const repayError = validateAmount(repayAmount, nzdDecimals, {
     value: debtBare,
     message: "More than you owe.",
@@ -709,9 +733,11 @@ export const BorrowPanel = ({
                 collateralActions.refresh();
               }}
               busy={collateralSequence.isRunning}
-              disabled={!positions.isCorrectNetwork}
+              disabled={!canWithdrawCollateral}
             >
-              Withdraw all {COLLATERAL_LABEL[collateralSymbol]}
+              {positions.totalDebtBase > 0n && maxWithdrawableCollateral < collateralPosition.deposited
+                ? `Withdraw available ${COLLATERAL_LABEL[collateralSymbol]}`
+                : `Withdraw all ${COLLATERAL_LABEL[collateralSymbol]}`}
             </ActionButton>
             <span className="self-center text-xs text-muted-foreground">
               Currently deposited:{" "}
@@ -720,8 +746,24 @@ export const BorrowPanel = ({
                 collateralPosition.decimals,
                 collateralSymbol === "wETH" ? "ETH" : "BTC",
               )}
+              {positions.totalDebtBase > 0n ? (
+                <>
+                  {" · "}
+                  Available now:{" "}
+                  {formatToken(
+                    maxWithdrawableCollateral,
+                    collateralPosition.decimals,
+                    collateralSymbol === "wETH" ? "ETH" : "BTC",
+                  )}
+                </>
+              ) : null}
             </span>
           </div>
+          {positions.totalDebtBase > 0n && maxWithdrawableCollateral === 0n ? (
+            <p className="mt-3 text-xs text-muted-foreground">
+              This deposit is covering your loan. Repay New Zealand dollars before withdrawing.
+            </p>
+          ) : null}
         </Card>
       ) : null}
     </div>

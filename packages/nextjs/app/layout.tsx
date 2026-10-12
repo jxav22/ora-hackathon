@@ -29,9 +29,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata = getMetadata({
-  title: "Ora: Earn on New Zealand dollars, or borrow against your crypto",
+  title: "Ora: Sepolia prototype for earning and borrowing in New Zealand dollars",
   description:
-    "A New Zealand dollar lending market. Deposit NZD and earn interest, or borrow NZD against your ETH and Bitcoin without selling them.",
+    "A Sepolia testnet prototype of an NZD lending market built on Aave V3. Deposit demo NZD (dNZD) or borrow it against test ETH and Bitcoin. Not a production financial product.",
 });
 
 const OraApp = ({ children }: { children: React.ReactNode }) => {
