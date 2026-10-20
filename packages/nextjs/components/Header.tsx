@@ -12,10 +12,46 @@ import { isPrivyEnabled } from "~~/utils/auth/isPrivyEnabled";
 
 type NavLink = { label: string; href: string };
 
-/** Two links, deliberately. Everything else lives in the footer. */
+/**
+ * Hash links stay native anchors. Next's `<Link>` drops the in-page jump when the
+ * path is already current, which is exactly the homepage contact link.
+ */
+const NavItem = ({
+  link,
+  pathname,
+  className,
+  onNavigate,
+}: {
+  link: NavLink;
+  pathname: string;
+  className?: string;
+  onNavigate?: () => void;
+}) => {
+  const isHash = link.href.includes("#");
+  const isActive = !isHash && (pathname === link.href || pathname.startsWith(`${link.href}/`));
+  const classes =
+    className ?? `transition-colors ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`;
+
+  if (isHash) {
+    return (
+      <a href={link.href} className={classes} onClick={onNavigate}>
+        {link.label}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={link.href} prefetch aria-current={isActive ? "page" : undefined} className={classes}>
+      {link.label}
+    </Link>
+  );
+};
+
+/** Product links, plus a way for a platform to reach the founders. Everything else lives in the footer. */
 const NAV_LINKS: NavLink[] = [
   { label: "Your account", href: "/app" },
   { label: "Rates & risk", href: "/market" },
+  { label: "Talk to us", href: "/#contact" },
 ];
 
 export const Header = () => {
@@ -29,6 +65,7 @@ export const Header = () => {
   // Warm the route compiles so the first soft navigation does not race an uncompiled route.
   useEffect(() => {
     for (const { href } of NAV_LINKS) {
+      if (href.includes("#")) continue;
       router.prefetch(href);
     }
   }, [router]);
@@ -50,20 +87,9 @@ export const Header = () => {
         </Link>
 
         <nav className="hidden items-center gap-8 text-sm md:flex">
-          {NAV_LINKS.map(({ label, href }) => {
-            const isActive = pathname === href || pathname.startsWith(`${href}/`);
-            return (
-              <Link
-                key={href}
-                href={href}
-                prefetch
-                aria-current={isActive ? "page" : undefined}
-                className={`transition-colors ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                {label}
-              </Link>
-            );
-          })}
+          {NAV_LINKS.map(link => (
+            <NavItem key={link.href} link={link} pathname={pathname} />
+          ))}
         </nav>
 
         <div className="flex items-center gap-2">
@@ -84,14 +110,14 @@ export const Header = () => {
 
             {menuOpen ? (
               <div className="absolute right-0 top-11 w-56 rounded-xl border border-border bg-card p-2 shadow-card">
-                {NAV_LINKS.map(({ label, href }) => (
-                  <Link
-                    key={href}
-                    href={href}
+                {NAV_LINKS.map(link => (
+                  <NavItem
+                    key={link.href}
+                    link={link}
+                    pathname={pathname}
+                    onNavigate={() => setMenuOpen(false)}
                     className="block rounded-lg px-3 py-2.5 text-sm text-foreground hover:bg-secondary"
-                  >
-                    {label}
-                  </Link>
+                  />
                 ))}
                 <div className="hairline mt-2 px-3 pt-3 sm:hidden">
                   {isPrivyEnabled ? <PrivyAuthButton /> : <RainbowKitCustomConnectButton />}

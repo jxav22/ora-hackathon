@@ -29,9 +29,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata = getMetadata({
-  title: "Ora: Sepolia prototype for earning and borrowing in New Zealand dollars",
+  title: "Ora: the yield layer for New Zealand dollar stablecoins",
   description:
-    "A Sepolia testnet prototype of an NZD lending market built on Aave V3. Deposit demo NZD (dNZD) or borrow it against test ETH and Bitcoin. Not a production financial product.",
+    "A Sepolia testnet prototype where platforms and issuers put NZD stablecoin float to work, non-custodially, on an Aave V3 market denominated in New Zealand dollars. Demo NZD (dNZD) and test assets only.",
 });
 
 const OraApp = ({ children }: { children: React.ReactNode }) => {
