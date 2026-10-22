@@ -1,11 +1,19 @@
-import { DEFAULT_PUBLIC_CONTACT_EMAIL, getPublicContactEmail } from "./contactEmail";
-import { describe, expect, it } from "vitest";
+import { getPublicContactEmail } from "./contactEmail";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 describe("getPublicContactEmail", () => {
-  it("publishes the founders address when unset or blank", () => {
-    expect(getPublicContactEmail(undefined)).toBe(DEFAULT_PUBLIC_CONTACT_EMAIL);
-    expect(getPublicContactEmail("")).toBe(DEFAULT_PUBLIC_CONTACT_EMAIL);
-    expect(getPublicContactEmail("   ")).toBe(DEFAULT_PUBLIC_CONTACT_EMAIL);
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("publishes no address when unset or blank", () => {
+    vi.stubEnv("NEXT_PUBLIC_CONTACT_EMAIL", undefined);
+    expect(getPublicContactEmail()).toBeUndefined();
+    expect(getPublicContactEmail("")).toBeUndefined();
+    expect(getPublicContactEmail("   ")).toBeUndefined();
+  });
+
+  it("uses the configured environment address", () => {
+    vi.stubEnv("NEXT_PUBLIC_CONTACT_EMAIL", "hello@ora.nz");
+    expect(getPublicContactEmail()).toBe("hello@ora.nz");
   });
 
   it("returns undefined for a value that is not an email", () => {
