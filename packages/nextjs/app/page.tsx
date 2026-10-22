@@ -79,8 +79,7 @@ const Hero = () => (
           Platforms and issuers hold NZD stablecoin balances that earn nothing. Ora is where that float goes to work,
           non-custodially, denominated in <span className="text-foreground">New Zealand dollars</span> throughout.
           Nearly every way to earn on-chain is priced in US dollars, so putting a balance to work that way creates a
-          currency position nobody chose. This site is a Sepolia testnet prototype. It uses demo NZD (dNZD) and test ETH
-          and Bitcoin on an Aave V3 market, not bank deposits.
+          currency position nobody chose.
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <a
