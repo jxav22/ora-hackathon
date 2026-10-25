@@ -167,6 +167,9 @@ const Account = () => {
           <Link href="/market" className="underline underline-offset-4 hover:text-foreground">
             Rates & risk
           </Link>
+          <a href="/#contact" className="underline underline-offset-4 hover:text-foreground">
+            Talk to us
+          </a>
         </div>
       </footer>
     </div>

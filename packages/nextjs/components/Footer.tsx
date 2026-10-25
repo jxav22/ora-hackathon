@@ -7,6 +7,7 @@ import { getPublicContactEmail } from "~~/utils/site/contactEmail";
 const PRODUCT_LINKS = [
   { label: "Your account", href: "/app" },
   { label: "Rates & risk", href: "/market" },
+  { label: "Talk to us", href: "/#contact" },
 ];
 
 /** Everything de-emphasised from the header ends up here. */
@@ -15,6 +16,25 @@ const TECHNICAL_LINKS = [
   { label: "Ask the API agent", href: "/binance-chat" },
   { label: "Advanced panel", href: "/advanced" },
 ];
+
+const linkClassName = "text-muted-foreground transition-colors hover:text-foreground";
+
+/** Hash links stay native anchors so `/#contact` still scrolls when already on `/`. */
+const ProductLink = ({ label, href }: { label: string; href: string }) => {
+  if (href.includes("#")) {
+    return (
+      <a href={href} className={linkClassName}>
+        {label}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={href} className={linkClassName}>
+      {label}
+    </Link>
+  );
+};
 
 export const Footer = () => {
   const explorer = `${aaveHackathonMnzdConfig.explorerBaseUrl}/address/${aaveHackathonMnzdConfig.poolAddress}`;
@@ -46,9 +66,7 @@ export const Footer = () => {
           <ul className="mt-4 flex flex-col gap-2.5 text-sm">
             {PRODUCT_LINKS.map(link => (
               <li key={link.href}>
-                <Link href={link.href} className="text-muted-foreground transition-colors hover:text-foreground">
-                  {link.label}
-                </Link>
+                <ProductLink label={link.label} href={link.href} />
               </li>
             ))}
           </ul>
